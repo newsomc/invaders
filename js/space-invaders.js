@@ -3,6 +3,7 @@
 /**
  * Bugs: 
  *  1. Cant move and shoot at the same time.
+ *  2. 
  */
 (function(){
 
@@ -29,9 +30,6 @@
      83: 'start'
 	 };
 
-   /**
-    * User
-    */
    var User = function(){
      this.color = "#00A";
      this.x = 25;
@@ -63,7 +61,6 @@
 
    User.prototype.move = function(dir) {
      this.dir = dir;
-
      if (this.dir === "moveLeft") {
        if (this.velocityX > -this.speed) {
          this.velocityX--;
@@ -100,13 +97,25 @@
    };
 
    User.prototype.explode = function(x, y) {
-     var particleAmt = Math.random()*5 + 5;
-     for (var i = 0; i < particleAmt; i++) {
-       var dir   = Math.random()*2*Math.PI;
-       var speed = Math.random()*3 + 2;
-       var life  = Math.random()*10 + 10;
-       var color = "#00A";
-       particles[particles.length] = new Particle(x, y, speed, dir, life, color);
+
+     if(this.lives > 0){
+       var particleAmt = Math.random() * 25 + 50;
+       for (var i = 0; i < particleAmt; i++) {
+         var dir   = Math.random()*2*Math.PI;
+         var speed = Math.random()*3 + 2;
+         var life  = Math.random()*10 + 10;
+         particles[particles.length] = new Particle(x, y, speed, dir, life, this.color);
+       }
+     }
+     else if(this.lives == 0){
+       this.active = false;
+       var particleAmt = Math.random() * 250 + 350;
+       for (var i = 0; i < particleAmt; i++) {
+         var dir   = Math.random() * 2 * Math.PI;
+         var speed = Math.random() * 3 + 2;
+         var life  = Math.random() * 10 + 10;
+         particles[particles.length] = new Particle(x, y, speed, dir, life, this.color);
+       }
      }
    };
 
@@ -121,8 +130,7 @@
    /**
     * Bullets.
     */
-
-   var Bullet = function (bullet) {
+   var Bullet = function(bullet) {
      this.x = bullet.x;
      this.y = bullet.y;
      this.speed = bullet.speed;
@@ -148,13 +156,12 @@
      this.x += this.xVelocity;
      this.y += this.yVelocity;
      this.active = this.active && this.inBounds();
-     //console.log(this.x, this.y, this.active);
    };
 
    /**
     * Aliens
     */
-   var Alien = function (alien) {
+   var Alien = function(alien) {
      alien = this;
      alien.alive = true;
      alien.age = Math.floor(Math.random() * 120);
@@ -167,7 +174,7 @@
      alien.height = 3;
    };
 
-   Alien.prototype.inBounds = function () {
+   Alien.prototype.inBounds = function() {
      return this.x >= 0 && this.x <= canvasWidth && 
        this.y >= 0 && this.y <= canvasHeight;
    };
@@ -225,8 +232,8 @@
    };
 
    var removeParticles = function() {
-     for(var l = particles.length-1, i = l; i >= 0; i--) {
-       if(particles[i].life < 0) {
+     for (var l = particles.length-1, i = l; i >= 0; i--) {
+       if (particles[i].life < 0) {
          particles[i] = particles[particles.length-1];
          particles.length--;
        }
@@ -236,7 +243,7 @@
    var animateParticles = function() {
      var t;
      var h = 0.5, w = 0.5;
-     if(t != null){
+     if (t != null) {
        clearTimeout(t);       
      }
      ctx.clearRect(0, 0, w, h);
@@ -244,17 +251,18 @@
      t = setTimeout(animateParticles, 33);
    };
 
-   // End Particle fncs.
 
+   var App = function(){
 
-   // Collisions.
+     
+   };
+
    var collision = function(a, b) {
      return a.x < b.x + b.width &&
        a.x + a.width > b.x &&
        a.y < b.y + b.height &&
        a.y + a.height > b.y;
    };
-
 
    // This is where App should probably start. 
    var handleCollisions = function() {
@@ -267,18 +275,19 @@
          }
        });
      });
-     aliens.forEach(function(alien){
-       if(collision(alien, user)){
-         //alien.explode();
+  
+     aliens.forEach(function(alien) {
+       if(collision(alien, user)) {
          user.explode(user.x, user.y);
-         user.decrementLives();
+         //This should handled in a more advanced way...
+         //user.decrementLives();
        }
      });
    };
 
    var update = function() {
+
      bullets.forEach(function(bullet){
-       //console.log(bullet);
        bullet.update();
      });
 
@@ -286,10 +295,8 @@
        return bullet.active;
      });     
 
-     //User friction/velocity.
      user.accelerate(user.friction, user.velocityX);
 
-     //Aliens
      aliens.forEach(function(alien) {
        alien.update();
      });
@@ -307,7 +314,11 @@
    
    var animate = function() {
      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-     user.draw();
+
+     if(user.active){
+       user.draw();              
+     }
+
      bullets.forEach(function(bullet){
        bullet.draw();               
      });
@@ -317,7 +328,6 @@
    };
 
    var mainDraw = function() {
-
      setTimeout(function() {
        stats.begin();
        window.requestAnimationFrame(mainDraw);
@@ -326,7 +336,6 @@
        updateScore();
        stats.end();
      }, interval);
-
    };
 
    //Score panel
@@ -348,7 +357,7 @@
    // Key handlers
 	 var handleKeys = function() {
 		 document.addEventListener('keydown', function(e){
-		   if( keyHandlers[e.keyCode] ) {
+		   if( keyHandlers[e.keyCode] && user.active) {
          user.event(keyHandlers[e.keyCode], e);         
        }
      });
@@ -356,6 +365,7 @@
 
    var user = new User;
    var alien = new Alien;
+
    handleKeys();
    mainDraw();
    animateParticles();
