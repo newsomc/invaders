@@ -3,7 +3,6 @@
 /**
  * Bugs: 
  *  1. Cant move and shoot at the same time.
- *  2. 
  */
 (function(){
 
@@ -15,25 +14,10 @@
    document.body.appendChild( stats.domElement );
 
    //Globals...encapsulate in an APP class.
-   var canvasWidth = 780, canvasHeight = 620,
-   c = document.getElementById("space-invaders"),
-   ctx = c.getContext("2d"), 
-   fps = 60, interval = 1000 / fps, 
-   bullets = [], aliens = [], 
-   particles = [],
-   phase = "waiting";
-
-	 var keyHandlers = {
-		 32: 'shoot',
-		 37: 'moveLeft',
-		 39: 'moveRight',
-     83: 'start'
-	 };
-
    var User = function(){
      this.color = "#00A";
      this.x = 25;
-     this.y = 125;
+     this.y = game.canvasHeight - 100;
      this.velocityX = 0;
      this.speed = 2;
      this.width = 15;
@@ -43,15 +27,14 @@
      this.score = 0;
      this.active = true;
      this.lives = 3;
+     this.midpoint = {
+       x : this.x + this.width / 2.5,
+       y : this.y + this.height / 2
+     };
    };
 
    User.prototype.shoot = function(){
-     this.midpoint = {
-       x : this.x + this.width / 2,
-       y : this.y + this.height / 2
-     };
-
-     bullets.push(
+     game.bullets.push(
        new Bullet({
          speed : 5,
          x : this.midpoint.x,
@@ -72,19 +55,14 @@
    };
 
    User.prototype.accelerate = function(friction, velocity) {
-     this.friction  = friction;
-     this.velocityX = velocity;
-     this.velocityX *= this.friction;
-     this.x += this.velocityX;
+     this.velocityX *= friction;
+     this.x += velocity;
    };
 
-   //Needs to be pulled out. Should be moved to an App handler.
    User.prototype.event = function(a, e) {
      if (a == "shoot") {
        this.shoot();
-     }
-     else if (a == "start"){
-       phase = "playing";
+       var aaa = 44444;
      }
      else {
        this.move(a);
@@ -92,12 +70,11 @@
    };
    
    User.prototype.draw = function() {
-     ctx.fillStyle = this.color;
-     ctx.fillRect(this.x, this.y, this.width, this.height);
+     game.ctx.fillStyle = this.color;
+     game.ctx.fillRect(this.x, this.y, this.width, this.height);
    };
 
    User.prototype.explode = function(x, y) {
-
      if(this.lives > 0){
        var particleAmt = Math.random() * 25 + 50;
        for (var i = 0; i < particleAmt; i++) {
@@ -131,6 +108,7 @@
     * Bullets.
     */
    var Bullet = function(bullet) {
+
      this.x = bullet.x;
      this.y = bullet.y;
      this.speed = bullet.speed;
@@ -143,16 +121,17 @@
    };
 
    Bullet.prototype.inBounds = function() {
-     return this.x >= 0 && this.x <= canvasWidth && 
-       this.y >= 0 && this.y <= canvasHeight;
+     return this.x >= 0 && this.x <= this.canvasWidth && 
+       this.y >= 0 && this.y <= this.canvasHeight;
    };
      
    Bullet.prototype.draw = function() {
-     ctx.fillStyle = this.color;
-     ctx.fillRect(this.x, this.y, this.width, this.height);
+     game.ctx.fillStyle = this.color;
+     game.ctx.fillRect(this.x, this.y, this.width, this.height);
    };
 
    Bullet.prototype.update = function() {
+     console.log(this.y, this.yVelocity);
      this.x += this.xVelocity;
      this.y += this.yVelocity;
      this.active = this.active && this.inBounds();
@@ -175,21 +154,21 @@
    };
 
    Alien.prototype.inBounds = function() {
-     return this.x >= 0 && this.x <= canvasWidth && 
-       this.y >= 0 && this.y <= canvasHeight;
+     return this.x >= 0 && this.x <= game.canvasWidth && 
+       this.y >= 0 && this.y <= game.canvasHeight;
    };
    
    Alien.prototype.draw = function() {
      if (this.alive) {
-       ctx.fillStyle = this.color;
-       ctx.fillRect(this.x, this.y, this.width, this.height);
+       game.ctx.fillStyle = this.color;
+       game.ctx.fillRect(this.x, this.y, this.width, this.height);
      }
    };
    
    Alien.prototype.update = function() {
      this.x += this.velocityX;
      this.y += this.velocityY;
-     this.velocityX = 3 * Math.sin(this.age * Math.PI / 64);
+     this.velocityX = 3 * Math.cos(this.age * Math.PI / 64);
      this.age++;
      this.alive = this.alive && this.inBounds();
    };
@@ -205,7 +184,9 @@
      }
    };
    
-   //Dealing with explosions.
+   /**
+    * Particles.
+    */
    var Particle = function(x, y, speed, dir, life, color) {
      this.x = x;
      this.y = y;
@@ -224,18 +205,18 @@
    // Start global particle fncs.
    var drawParticles = function() {
      removeParticles();
-     particles.forEach(function(p){
-       ctx.fillStyle = p.color;
-       ctx.fillRect(p.x-1, p.y-1, 1, 1); 
+     game.particles.forEach(function(p){
+       game.ctx.fillStyle = p.color;
+       game.ctx.fillRect(p.x-1, p.y-1, 1, 1); 
        p.update();
      });
    };
 
    var removeParticles = function() {
-     for (var l = particles.length-1, i = l; i >= 0; i--) {
-       if (particles[i].life < 0) {
-         particles[i] = particles[particles.length-1];
-         particles.length--;
+     for (var l = game.particles.length-1, i = l; i >= 0; i--) {
+       if (game.particles[i].life < 0) {
+         game.particles[i] = particles[particles.length-1];
+         game.particles.length--;
        }
      }
    };
@@ -246,15 +227,9 @@
      if (t != null) {
        clearTimeout(t);       
      }
-     ctx.clearRect(0, 0, w, h);
+     game.ctx.clearRect(0, 0, w, h);
      drawParticles();
      t = setTimeout(animateParticles, 33);
-   };
-
-
-   var App = function(){
-
-     
    };
 
    var collision = function(a, b) {
@@ -264,10 +239,28 @@
        a.y + a.height > b.y;
    };
 
-   // This is where App should probably start. 
-   var handleCollisions = function() {
-     bullets.forEach(function(bullet) {
-       aliens.forEach(function(alien) {
+   var Game = function(){
+     this.canvasWidth = 780; 
+     this.canvasHeight = 620;
+     this.c = document.getElementById("space-invaders");
+     this.ctx = this.c.getContext("2d");
+     this.fps = 60; 
+     this.interval = 1000 / this.fps;
+     this.bullets = [];
+     this.aliens = [];
+     this.particles = [];
+     this.phase = "waiting";
+	   this.keyHandlers = {
+		   32: 'shoot',
+		   37: 'moveLeft',
+		   39: 'moveRight',
+       83: 'start'
+	   };
+   };
+
+   Game.prototype.handleCollisions = function(user) {
+     this.bullets.forEach(function(bullet) {
+       this.aliens.forEach(function(alien) {
          if(collision(bullet, alien)) {
            bullet.active = false;
            alien.explode(alien.x, alien.y);
@@ -276,98 +269,99 @@
        });
      });
   
-     aliens.forEach(function(alien) {
+     this.aliens.forEach(function(alien) {
        if(collision(alien, user)) {
          user.explode(user.x, user.y);
-         //This should handled in a more advanced way...
+         //This should handled in a different way...
          //user.decrementLives();
        }
      });
    };
 
-   var update = function() {
+   Game.prototype.update = function(user) {
 
-     bullets.forEach(function(bullet){
+     this.bullets.forEach(function(bullet){
        bullet.update();
      });
 
-     bullets = bullets.filter(function(bullet){
+     this.bullets = this.bullets.filter(function(bullet){
        return bullet.active;
      });     
 
      user.accelerate(user.friction, user.velocityX);
 
-     aliens.forEach(function(alien) {
+     this.aliens.forEach(function(alien) {
        alien.update();
      });
      
-     aliens = aliens.filter(function(alien) {
+     this.aliens = this.aliens.filter(function(alien) {
        return alien.alive;
      });
      
      if(Math.random() < 0.1) {
-       aliens.push(new Alien);
+       this.aliens.push(new Alien);
      }
 
-     handleCollisions();
+     this.handleCollisions(user);
    };
    
-   var animate = function() {
-     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+   Game.prototype.animate = function(user) {
+
+     this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 
      if(user.active){
        user.draw();              
      }
 
-     bullets.forEach(function(bullet){
+     this.bullets.forEach(function(bullet){
        bullet.draw();               
      });
-     aliens.forEach(function(alien) {
+
+     this.aliens.forEach(function(alien) {
        alien.draw();
      });
    };
 
-   var mainDraw = function() {
-     setTimeout(function() {
-       stats.begin();
-       window.requestAnimationFrame(mainDraw);
-       update();
-       animate();
-       updateScore();
-       stats.end();
-     }, interval);
+   Game.prototype.updateScore = function(user) {
+     this.user = user;
+     this.ctx.lineWidth = 0.5;
+     this.ctx.font="9px sans-serif";
+     this.ctx.textAlign = "right";
+     this.ctx.textBaseline = "bottom";
+     this.ctx.fillText("Score: " + this.user.score, 300, 145);     
+     this.ctx.fillText("Lives: " + this.user.lives, 300, 135);     
    };
 
-   //Score panel
-   var updateScore = function() {
-     ctx.lineWidth = 0.5;
-     ctx.font="9px sans-serif";
-     ctx.textAlign = "right";
-     ctx.textBaseline = "bottom";
-     ctx.fillText("Score: " + user.score, 300, 145);     
-     ctx.fillText("Lives: " + user.lives, 300, 135);     
+   Game.prototype.gameDialog = function(msg) {
+     this.ctx.lineWidth = 0.5;
+     this.ctx.font="9px sans-serif";
+     this.ctx.fillText(msg, 50, 135);     
    };
 
-   var updateStatus = function(msg) {
-     ctx.lineWidth = 0.5;
-     ctx.font="9px sans-serif";
-     ctx.fillText(msg, 50, 135);     
-   };
-
-   // Key handlers
-	 var handleKeys = function() {
+	 Game.prototype.handleKeys = function(user) {
+     self = this;
 		 document.addEventListener('keydown', function(e){
-		   if( keyHandlers[e.keyCode] && user.active) {
-         user.event(keyHandlers[e.keyCode], e);         
+		   if( self.keyHandlers[e.keyCode] && user.active ) {
+         user.event(self.keyHandlers[e.keyCode], e);         
        }
      });
 	 };
 
-   var user = new User;
-   var alien = new Alien;
+   Game.prototype.main = function() {
+     var user = new User();
+     game.handleKeys(user);
+     animateParticles();
+     setTimeout(function(){
+       stats.begin();
+       window.requestAnimationFrame(game.main);
+       game.animate(user);
+       game.update(user);
+       game.updateScore(user);
+       stats.end();
+     }, this.interval);
+   };
 
-   handleKeys();
-   mainDraw();
-   animateParticles();
+   var game = new Game();
+   game.main();
 
  }());
